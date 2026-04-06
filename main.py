@@ -483,3 +483,217 @@ def property_summary(property_id: int, bq: bigquery.Client = Depends(get_bq_clie
         )
 
     return serialize_row(results[0])
+
+
+# -------------------------------------------------------------------
+# Income
+# -------------------------------------------------------------------
+@app.get("/income/{property_id}")
+def get_income(property_id: int, bq: bigquery.Client = Depends(get_bq_client)):
+    """
+    Returns all income records for a property.
+    """
+    if not property_exists(property_id, bq):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Property not found"
+        )
+
+    query = f"""
+        SELECT
+            income_id,
+            property_id,
+            amount,
+            income_date,
+            source,
+            notes
+        FROM `{PROJECT_ID}.{DATASET}.income`
+        WHERE property_id = @property_id
+        ORDER BY income_date DESC, income_id DESC
+    """
+
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("property_id", "INT64", property_id)
+        ]
+    )
+
+    try:
+        results = bq.query(query, job_config=job_config).result()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get income records: {str(e)}"
+        )
+
+    return [serialize_row(row) for row in results]
+
+
+@app.post("/income/{property_id}", status_code=status.HTTP_201_CREATED)
+def create_income(
+    property_id: int,
+    payload: IncomeCreate,
+    bq: bigquery.Client = Depends(get_bq_client)
+):
+    """
+    Creates a new income record for a property.
+    """
+    if not property_exists(property_id, bq):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Property not found"
+        )
+
+    new_income_id = get_next_id("income", "income_id", bq)
+
+    query = f"""
+        INSERT INTO `{PROJECT_ID}.{DATASET}.income`
+        (
+            income_id,
+            property_id,
+            amount,
+            income_date,
+            source,
+            notes
+        )
+        VALUES
+        (
+            @income_id,
+            @property_id,
+            @amount,
+            @income_date,
+            @source,
+            @notes
+        )
+    """
+
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("income_id", "INT64", new_income_id),
+            bigquery.ScalarQueryParameter("property_id", "INT64", property_id),
+            bigquery.ScalarQueryParameter("amount", "FLOAT64", payload.amount),
+            bigquery.ScalarQueryParameter("income_date", "DATE", payload.income_date),
+            bigquery.ScalarQueryParameter("source", "STRING", payload.source),
+            bigquery.ScalarQueryParameter("notes", "STRING", payload.notes),
+        ]
+    )
+
+    try:
+        bq.query(query, job_config=job_config).result()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create income record: {str(e)}"
+        )
+
+    return {
+        "message": "Income record created successfully",
+        "income": get_income_by_id_from_db(new_income_id, bq)
+    }
+
+
+# -------------------------------------------------------------------
+# Expenses
+# -------------------------------------------------------------------
+@app.get("/expenses/{property_id}")
+def get_expenses(property_id: int, bq: bigquery.Client = Depends(get_bq_client)):
+    """
+    Returns all expense records for a property.
+    """
+    if not property_exists(property_id, bq):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Property not found"
+        )
+
+    query = f"""
+        SELECT
+            expense_id,
+            property_id,
+            amount,
+            expense_date,
+            category,
+            notes
+        FROM `{PROJECT_ID}.{DATASET}.expenses`
+        WHERE property_id = @property_id
+        ORDER BY expense_date DESC, expense_id DESC
+    """
+
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("property_id", "INT64", property_id)
+        ]
+    )
+
+    try:
+        results = bq.query(query, job_config=job_config).result()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get expense records: {str(e)}"
+        )
+
+    return [serialize_row(row) for row in results]
+
+
+@app.post("/expenses/{property_id}", status_code=status.HTTP_201_CREATED)
+def create_expense(
+    property_id: int,
+    payload: ExpenseCreate,
+    bq: bigquery.Client = Depends(get_bq_client)
+):
+    """
+    Creates a new expense record for a property.
+    """
+    if not property_exists(property_id, bq):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Property not found"
+        )
+
+    new_expense_id = get_next_id("expenses", "expense_id", bq)
+
+    query = f"""
+        INSERT INTO `{PROJECT_ID}.{DATASET}.expenses`
+        (
+            expense_id,
+            property_id,
+            amount,
+            expense_date,
+            category,
+            notes
+        )
+        VALUES
+        (
+            @expense_id,
+            @property_id,
+            @amount,
+            @expense_date,
+            @category,
+            @notes
+        )
+    """
+
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("expense_id", "INT64", new_expense_id),
+            bigquery.ScalarQueryParameter("property_id", "INT64", property_id),
+            bigquery.ScalarQueryParameter("amount", "FLOAT64", payload.amount),
+            bigquery.ScalarQueryParameter("expense_date", "DATE", payload.expense_date),
+            bigquery.ScalarQueryParameter("category", "STRING", payload.category),
+            bigquery.ScalarQueryParameter("notes", "STRING", payload.notes),
+        ]
+    )
+
+    try:
+        bq.query(query, job_config=job_config).result()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create expense record: {str(e)}"
+        )
+
+    return {
+        "message": "Expense record created successfully",
+        "expense": get_expense_by_id_from_db(new_expense_id, bq)
+    }
