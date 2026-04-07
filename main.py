@@ -59,16 +59,16 @@ class PropertyUpdate(BaseModel):
 
 class IncomeCreate(BaseModel):
     amount: float = Field(ge=0)
-    income_date: date
-    source: str
-    notes: str | None = None
+    date: date
+    description: str | None = None
 
 
 class ExpenseCreate(BaseModel):
     amount: float = Field(ge=0)
-    expense_date: date
+    date: date
     category: str
-    notes: str | None = None
+    vendor: str | None = None
+    description: str | None = None
 
 
 # -------------------------------------------------------------------
@@ -151,9 +151,8 @@ def get_income_by_id_from_db(income_id: int, bq: bigquery.Client):
             income_id,
             property_id,
             amount,
-            income_date,
-            source,
-            notes
+            date,
+            description
         FROM `{PROJECT_ID}.{DATASET}.income`
         WHERE income_id = @income_id
         LIMIT 1
@@ -179,9 +178,10 @@ def get_expense_by_id_from_db(expense_id: int, bq: bigquery.Client):
             expense_id,
             property_id,
             amount,
-            expense_date,
+            date,
             category,
-            notes
+            vendor,
+            description
         FROM `{PROJECT_ID}.{DATASET}.expenses`
         WHERE expense_id = @expense_id
         LIMIT 1
@@ -504,12 +504,11 @@ def get_income(property_id: int, bq: bigquery.Client = Depends(get_bq_client)):
             income_id,
             property_id,
             amount,
-            income_date,
-            source,
-            notes
+            date,
+            description
         FROM `{PROJECT_ID}.{DATASET}.income`
         WHERE property_id = @property_id
-        ORDER BY income_date DESC, income_id DESC
+        ORDER BY date DESC, income_id DESC
     """
 
     job_config = bigquery.QueryJobConfig(
@@ -552,18 +551,16 @@ def create_income(
             income_id,
             property_id,
             amount,
-            income_date,
-            source,
-            notes
+            date,
+            description
         )
         VALUES
         (
             @income_id,
             @property_id,
             @amount,
-            @income_date,
-            @source,
-            @notes
+            @date,
+            @description
         )
     """
 
@@ -572,9 +569,8 @@ def create_income(
             bigquery.ScalarQueryParameter("income_id", "INT64", new_income_id),
             bigquery.ScalarQueryParameter("property_id", "INT64", property_id),
             bigquery.ScalarQueryParameter("amount", "FLOAT64", payload.amount),
-            bigquery.ScalarQueryParameter("income_date", "DATE", payload.income_date),
-            bigquery.ScalarQueryParameter("source", "STRING", payload.source),
-            bigquery.ScalarQueryParameter("notes", "STRING", payload.notes),
+            bigquery.ScalarQueryParameter("date", "DATE", payload.date),
+            bigquery.ScalarQueryParameter("description", "STRING", payload.description),
         ]
     )
 
@@ -611,12 +607,13 @@ def get_expenses(property_id: int, bq: bigquery.Client = Depends(get_bq_client))
             expense_id,
             property_id,
             amount,
-            expense_date,
+            date,
             category,
-            notes
+            vendor,
+            description
         FROM `{PROJECT_ID}.{DATASET}.expenses`
         WHERE property_id = @property_id
-        ORDER BY expense_date DESC, expense_id DESC
+        ORDER BY date DESC, expense_id DESC
     """
 
     job_config = bigquery.QueryJobConfig(
@@ -659,18 +656,20 @@ def create_expense(
             expense_id,
             property_id,
             amount,
-            expense_date,
+            date,
             category,
-            notes
+            vendor,
+            description
         )
         VALUES
         (
             @expense_id,
             @property_id,
             @amount,
-            @expense_date,
+            @date,
             @category,
-            @notes
+            @vendor,
+            @description
         )
     """
 
@@ -679,9 +678,10 @@ def create_expense(
             bigquery.ScalarQueryParameter("expense_id", "INT64", new_expense_id),
             bigquery.ScalarQueryParameter("property_id", "INT64", property_id),
             bigquery.ScalarQueryParameter("amount", "FLOAT64", payload.amount),
-            bigquery.ScalarQueryParameter("expense_date", "DATE", payload.expense_date),
+            bigquery.ScalarQueryParameter("date", "DATE", payload.date),
             bigquery.ScalarQueryParameter("category", "STRING", payload.category),
-            bigquery.ScalarQueryParameter("notes", "STRING", payload.notes),
+            bigquery.ScalarQueryParameter("vendor", "STRING", payload.vendor),
+            bigquery.ScalarQueryParameter("description", "STRING", payload.description),
         ]
     )
 
